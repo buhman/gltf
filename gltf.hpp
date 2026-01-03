@@ -1,29 +1,37 @@
-template <typename T>
-struct Array {
-  T * e;
-  int length;
-};
-
 struct Mesh {
-  D3DXVECTOR3 * position;
-  D3DXVECTOR3 * normal;
-  D3DXVECTOR2 * texcoord_0;
-  DWORD * indices;
+  const D3DXVECTOR3 * position;
+  const DWORD position_size;
+
+  const D3DXVECTOR3 * normal;
+  const DWORD normal_size;
+
+  const D3DXVECTOR2 * texcoord_0;
+  const DWORD texcoord_0_size;
+
+  const D3DXVECTOR4 * weights_0;
+  const DWORD weights_0_size;
+
+  const D3DXVECTOR4 * joints_0;
+  const DWORD joints_0_size;
+
+  const DWORD * indices;
+  const DWORD indices_size;
 };
 
 struct Skin;
 
 struct Node {
-  Skin * skin; // skin index (global)
-  Mesh * mesh; // mesh index (global)
-  D3DXVECTOR3 scale;
-  D3DXVECTOR3 translation;
-  D3DXQUATERNION rotation;
+  const Skin * skin; // skin index (global)
+  const Mesh * mesh; // mesh index (global)
+  const D3DXVECTOR3 translation;
+  const D3DXQUATERNION rotation;
+  const D3DXVECTOR3 scale;
 };
 
 struct Skin {
-  D3DXMATRIX * inverse_bind_matrices; // accessor
-  Array<Node *> joints;
+  const D3DXMATRIX * inverse_bind_matrices; // accessor
+  const Node ** joints;
+  DWORD joints_length;
 };
 
 enum AnimationChannelPath {
@@ -34,19 +42,20 @@ enum AnimationChannelPath {
 };
 
 struct AnimationSampler {
-  float * input;  // accessor index, containing keyframe timestamps
-  void * output; // accessor index, containing keyframe values (type depends on channel target path)
+  const float * input;  // accessor index, containing keyframe timestamps
+  const void * output; // accessor index, containing keyframe values (type depends on channel target path)
+  const int length;
 };
 
 struct AnimationChannel {
-  AnimationSampler * sampler; // sampler index, this animation
+  const AnimationSampler * sampler; // sampler index, this animation
   struct {
-    Node * node; // node index
-    AnimationChannelPath path; // property to animate
+    const Node * node; // node index
+    const AnimationChannelPath path; // property to animate
   } target;
 };
 
-struct Animation {
-  Array<AnimationChannel> channels;
-  Array<AnimationSampler> samplers;
-};
+//struct Animation {
+//  const AnimationChannel * channels;
+//  const AnimationSampler * samplers;
+//};

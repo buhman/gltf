@@ -75,12 +75,23 @@ def render_meshes(gltf):
         position = attributes["POSITION"]
         normal = attributes.get("NORMAL", None)
         texcoord_0 = attributes.get("TEXCOORD_0", None)
+        weights_0 = attributes.get("WEIGHTS_0", None)
+        joints_0 = attributes.get("JOINTS_0", None)
         indices = primitive["indices"]
         yield f"const Mesh mesh_{mesh_ix} = {{"
         yield f"accessor_{position}, // position"
-        yield f"accessor_{normal}, // normal" if normal is not None else "NULL,"
-        yield f"accessor_{texcoord_0}, // texcoord_0" if texcoord_0 is not None else "NULL,"
+        yield f"(sizeof (accessor_{position})),"
+        yield f"accessor_{normal}, // normal" if normal is not None else "NULL, // normal"
+        yield f"(sizeof (accessor_{normal}))," if normal is not None else "0,"
+        yield f"accessor_{texcoord_0}, // texcoord_0" if texcoord_0 is not None else "NULL, // texcoord_0"
+        yield f"(sizeof (accessor_{texcoord_0}))," if texcoord_0 is not None else "0,"
+        yield f"accessor_{weights_0}, // weights_0" if weights_0 is not None else "NULL, // weights_0"
+        yield f"(sizeof (accessor_{weights_0}))," if weights_0 is not None else "0,"
+        yield f"accessor_{joints_0}, // joints_0" if joints_0 is not None else "NULL, // joints_0"
+        yield f"(sizeof (accessor_{joints_0}))," if joints_0 is not None else "0,"
         yield f"accessor_{indices}, // indices"
+        yield f"(sizeof (accessor_{indices})),"
+
         yield "};"
 
 def render_nodes(gltf):
@@ -88,7 +99,7 @@ def render_nodes(gltf):
         if "skin" not in node:
             continue
         skin = node["skin"]
-        yield f"const Skin skin_{skin};"
+        yield f"extern const Skin skin_{skin};"
 
     for node_ix, node in enumerate(gltf.json["nodes"]):
         skin = f"&skin_{node['skin']}" if "skin" in node else "NULL"
@@ -107,9 +118,9 @@ def render_nodes(gltf):
         yield f"const Node node_{node_ix} = {{"
         yield f"{skin}, // skin"
         yield f"{mesh}, // mesh"
-        yield f"{render_value(scale, 'D3DXVECTOR3')}, // scale"
         yield f"{render_value(translation, 'D3DXVECTOR3')}, // translation"
         yield f"{render_value(rotation, 'D3DXVECTOR4')}, // rotation"
+        yield f"{render_value(scale, 'D3DXVECTOR3')}, // scale"
         yield "};"
 
 def render_skins(gltf):
@@ -123,7 +134,8 @@ def render_skins(gltf):
         inverse_bind_matrices = skin["inverseBindMatrices"]
         yield f"const Skin skin_{skin_ix} = {{"
         yield f"accessor_{inverse_bind_matrices}, // inverse bind matrices"
-        yield f"{{ skin_{skin_ix}__joints, {len(skin['joints'])} }},"
+        yield f"skin_{skin_ix}__joints, // joints"
+        yield f"{len(skin['joints'])}, // joints length"
         yield "};"
 
 def render_animation_samplers(animation_ix, samplers):
@@ -131,6 +143,7 @@ def render_animation_samplers(animation_ix, samplers):
         yield f"const AnimationSampler animation_{animation_ix}__sampler_{sampler_ix} = {{"
         yield f"accessor_{sampler['input']}, // input, keyframe timestamps"
         yield f"accessor_{sampler['output']}, // output, keyframe values (void *)"
+        yield f"accessor_{sampler['input']}_length, // length"
         yield "};"
 
 
