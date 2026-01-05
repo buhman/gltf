@@ -6,8 +6,7 @@ from gltf import decode_file
 from gltf import validate_mesh
 from gltf import decode_accessor
 
-filename = sys.argv[1]
-gltf = decode_file(filename)
+from tree import build_tree
 
 def type_name(type):
     return {
@@ -101,6 +100,8 @@ def render_nodes(gltf):
         skin = node["skin"]
         yield f"extern const Skin skin_{skin};"
 
+    node_parents = build_tree(gltf)
+
     for node_ix, node in enumerate(gltf.json["nodes"]):
         skin = f"&skin_{node['skin']}" if "skin" in node else "NULL"
         mesh = f"&mesh_{node['skin']}" if "mesh" in node else "NULL"
@@ -115,7 +116,10 @@ def render_nodes(gltf):
         if "rotation" in node:
             rotation = node["rotation"]
 
+        parent_ix = node_parents.get(node_ix, -1)
+
         yield f"const Node node_{node_ix} = {{"
+        yield f"{parent_ix}, // parent_ix"
         yield f"{skin}, // skin"
         yield f"{mesh}, // mesh"
         yield f"{render_value(translation, 'D3DXVECTOR3')}, // translation"
@@ -155,7 +159,7 @@ def render_animation_channels(animation_ix, channels):
         target_path = channel["target"]["path"]
         yield f"&animation_{animation_ix}__sampler_{sampler}, // animation sampler"
         yield "{"
-        yield f"&node_{target_node}, // target node"
+        yield f"{target_node}, // target node index"
         yield f"ACP__{target_path.upper()}, // target path"
         yield "},"
     yield "};"
@@ -172,6 +176,8 @@ def render_gltf(gltf):
     yield from render_skins(gltf)
     yield from render_animations(gltf)
 
+filename = sys.argv[1]
+gltf = decode_file(filename)
 render, out = renderer()
 render(render_gltf(gltf))
 print(out.getvalue())
