@@ -1,3 +1,4 @@
+from os import path
 import sys
 from pprint import pprint
 from generate import renderer
@@ -51,20 +52,31 @@ def render_value(value, c_type):
     else:
         assert False
 
+def accessor_c_type(accessor, components):
+    accessor_type = accessor['type']
+    if type(components[0]) in {int, float}:
+        return "DWORD" if type(components[0]) is int else "float"
+    else:
+        return type_name(accessor_type)
+
 def render_accessors(gltf):
     for accessor_ix, accessor in enumerate(gltf.json["accessors"]):
         components = list(decode_accessor(gltf, accessor))
+        c_type = accessor_c_type(accessor, components)
         accessor_name = f"accessor_{accessor_ix}"
-        accessor_type = accessor['type']
-        if type(components[0]) in {int, float}:
-            c_type = "DWORD" if type(components[0]) is int else "float"
-        else:
-            c_type = type_name(accessor_type)
         yield f"const {c_type} {accessor_name}[] = {{"
         for v in components:
             yield f"{render_value(v, c_type)},"
         yield "};"
-        yield f"const int {accessor_name}_length = (sizeof ({accessor_name})) / (sizeof ({accessor_name}[0]));"
+
+def render_accessors_extern(gltf):
+    for accessor_ix, accessor in enumerate(gltf.json["accessors"]):
+        components = list(decode_accessor(gltf, accessor))
+        c_type = accessor_c_type(accessor, components)
+        accessor_name = f"accessor_{accessor_ix}"
+        yield f"extern const {c_type} {accessor_name}[];";
+        yield f"const int {accessor_name}__length = {len(components)};"
+        yield f"const int {accessor_name}__size = (sizeof ({c_type})) * {len(components)};"
 
 def render_meshes(gltf):
     for mesh_ix, mesh in enumerate(gltf.json["meshes"]):
@@ -79,17 +91,17 @@ def render_meshes(gltf):
         indices = primitive["indices"]
         yield f"const Mesh mesh_{mesh_ix} = {{"
         yield f"accessor_{position}, // position"
-        yield f"(sizeof (accessor_{position})),"
+        yield f"accessor_{position}__size,"
         yield f"accessor_{normal}, // normal" if normal is not None else "NULL, // normal"
-        yield f"(sizeof (accessor_{normal}))," if normal is not None else "0,"
+        yield f"accessor_{normal}__size," if normal is not None else "0,"
         yield f"accessor_{texcoord_0}, // texcoord_0" if texcoord_0 is not None else "NULL, // texcoord_0"
-        yield f"(sizeof (accessor_{texcoord_0}))," if texcoord_0 is not None else "0,"
+        yield f"accessor_{texcoord_0}__size," if texcoord_0 is not None else "0,"
         yield f"accessor_{weights_0}, // weights_0" if weights_0 is not None else "NULL, // weights_0"
-        yield f"(sizeof (accessor_{weights_0}))," if weights_0 is not None else "0,"
+        yield f"accessor_{weights_0}__size," if weights_0 is not None else "0,"
         yield f"accessor_{joints_0}, // joints_0" if joints_0 is not None else "NULL, // joints_0"
-        yield f"(sizeof (accessor_{joints_0}))," if joints_0 is not None else "0,"
+        yield f"accessor_{joints_0}__size," if joints_0 is not None else "0,"
         yield f"accessor_{indices}, // indices"
-        yield f"(sizeof (accessor_{indices})),"
+        yield f"accessor_{indices}__size,"
 
         yield "};"
 
@@ -103,6 +115,9 @@ def render_nodes(gltf):
     node_parents = build_tree(gltf)
 
     for node_ix, node in enumerate(gltf.json["nodes"]):
+        if "mesh" in node:
+            print(f"mesh node {node_ix}", file=sys.stderr)
+
         skin = f"&skin_{node['skin']}" if "skin" in node else "NULL"
         mesh = f"&mesh_{node['skin']}" if "mesh" in node else "NULL"
 
@@ -131,7 +146,12 @@ def render_nodes(gltf):
     for node_ix in range(len(gltf.json["nodes"])):
         yield f"&node_{node_ix},"
     yield "};"
-    yield f"const int nodes_length = (sizeof (nodes)) / (sizeof (nodes[0]));"
+
+def render_nodes_extern(gltf):
+    for node_ix, node in enumerate(gltf.json["nodes"]):
+        yield f"extern const Node node_{node_ix};"
+    yield "extern const Node * nodes[];"
+    yield f'const int nodes__length = {len(gltf.json["nodes"])};'
 
 def render_skins(gltf):
     for skin_ix, skin in enumerate(gltf.json["skins"]):
@@ -148,14 +168,17 @@ def render_skins(gltf):
         yield f"{len(skin['joints'])}, // joints length"
         yield "};"
 
+def render_skins_extern(gltf):
+    for skin_ix, skin in enumerate(gltf.json["skins"]):
+        yield f"const int skin_{skin_ix}__joints__length = {len(skin['joints'])};"
+
 def render_animation_samplers(animation_ix, samplers):
     for sampler_ix, sampler in enumerate(samplers):
         yield f"const AnimationSampler animation_{animation_ix}__sampler_{sampler_ix} = {{"
         yield f"accessor_{sampler['input']}, // input, keyframe timestamps"
         yield f"accessor_{sampler['output']}, // output, keyframe values (void *)"
-        yield f"accessor_{sampler['input']}_length, // length"
+        yield f"accessor_{sampler['input']}__length, // length"
         yield "};"
-
 
 def render_animation_channels(animation_ix, channels):
     yield f"const AnimationChannel animation_{animation_ix}__channels[] = {{"
@@ -170,12 +193,28 @@ def render_animation_channels(animation_ix, channels):
         yield "},"
     yield "};"
 
+def render_animations_extern(animation_ix):
+    for animation_ix, animation in enumerate(gltf.json["animations"]):
+        yield f"extern const AnimationChannel animation_{animation_ix}__channels[];"
+        length = len(animation["channels"])
+        yield f"const int animation_{animation_ix}__channels__length = {length};"
+
 def render_animations(gltf):
     for animation_ix, animation in enumerate(gltf.json["animations"]):
         yield from render_animation_samplers(animation_ix, animation["samplers"])
         yield from render_animation_channels(animation_ix, animation["channels"])
 
-def render_gltf(gltf):
+def render_gltf_header(gltf):
+    yield from render_skins_extern(gltf)
+    yield from render_accessors_extern(gltf)
+    yield from render_nodes_extern(gltf)
+    yield from render_animations_extern(gltf)
+
+def render_gltf_source(gltf, filename_hpp):
+    header_name = path.split(filename_hpp)[1]
+    yield "#include <d3dx10.h>"
+    yield '#include "gltf.hpp"'
+    yield f'#include "{header_name}"'
     yield from render_accessors(gltf)
     yield from render_meshes(gltf)
     yield from render_nodes(gltf)
@@ -183,7 +222,16 @@ def render_gltf(gltf):
     yield from render_animations(gltf)
 
 filename = sys.argv[1]
+filename_cpp = sys.argv[2]
+filename_hpp = sys.argv[3]
 gltf = decode_file(filename)
-render, out = renderer()
-render(render_gltf(gltf))
-print(out.getvalue())
+
+with open(filename_cpp, "w") as f:
+    render, out = renderer()
+    render(render_gltf_source(gltf, filename_hpp))
+    f.write(out.getvalue())
+
+with open(filename_hpp, "w") as f:
+    render, out = renderer()
+    render(render_gltf_header(gltf))
+    f.write(out.getvalue())
