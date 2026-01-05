@@ -1,5 +1,13 @@
 from gltf import decode_file
 
+def linearize_tree(node_ix, nodes):
+    yield node_ix
+    node = nodes[node_ix]
+    if "children" not in node:
+        return
+    for child_ix in node["children"]:
+        yield from linearize_tree(child_ix, nodes)
+
 def build_tree(gltf):
     parents = {} # from child to parent
 
@@ -10,14 +18,10 @@ def build_tree(gltf):
             assert child_ix not in parents
             parents[child_ix] = node_ix
 
-    for skin in gltf.json["skins"]:
-        seen = set()
-        for joint in skin["joints"]:
-            parent = parents[joint]
-            assert parent in seen or parent not in skin["joints"], (parent, joint, seen)
-            seen.add(joint)
+    root_node_ix, = [i for i in parents.values() if i not in parents]
+    traversal_order = list(linearize_tree(root_node_ix, gltf.json["nodes"]))
 
-    return parents
+    return parents, traversal_order
 
 if __name__ == "__main__":
     import sys

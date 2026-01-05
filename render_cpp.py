@@ -112,7 +112,7 @@ def render_nodes(gltf):
         skin = node["skin"]
         yield f"extern const Skin skin_{skin};"
 
-    node_parents = build_tree(gltf)
+    node_parents, traversal_order = build_tree(gltf)
 
     for node_ix, node in enumerate(gltf.json["nodes"]):
         if "mesh" in node:
@@ -223,7 +223,9 @@ def render_gltf_source(gltf, filename_hpp):
 
 filename = sys.argv[1]
 filename_cpp = sys.argv[2]
+assert filename_cpp.endswith(".cpp")
 filename_hpp = sys.argv[3]
+assert filename_hpp.endswith(".hpp")
 gltf = decode_file(filename)
 
 with open(filename_cpp, "w") as f:
