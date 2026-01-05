@@ -34,7 +34,7 @@ struct Node {
 
 struct Skin {
   const D3DXMATRIX * inverse_bind_matrices; // accessor
-  const Node ** joints;
+  const int * joints;
   DWORD joints_length;
 };
 
@@ -59,5 +59,4 @@ struct AnimationChannel {
   } target;
 };
 
-#ifndef GLTF_HPP_
-#define GLTF_HPP_
+#endif

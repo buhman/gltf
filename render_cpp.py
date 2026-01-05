@@ -127,11 +127,17 @@ def render_nodes(gltf):
         yield f"{render_value(scale, 'D3DXVECTOR3')}, // scale"
         yield "};"
 
+    yield "const Node * nodes[] = {"
+    for node_ix in range(len(gltf.json["nodes"])):
+        yield f"&node_{node_ix},"
+    yield "};"
+    yield f"const int nodes_length = (sizeof (nodes)) / (sizeof (nodes[0]));"
+
 def render_skins(gltf):
     for skin_ix, skin in enumerate(gltf.json["skins"]):
-        yield f"const Node * skin_{skin_ix}__joints[] = {{"
+        yield f"const int skin_{skin_ix}__joints[] = {{"
         for joint in skin["joints"]:
-            yield f"&node_{joint},"
+            yield f"{joint},"
         yield "};"
 
     for skin_ix, skin in enumerate(gltf.json["skins"]):
