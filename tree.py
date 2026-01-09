@@ -11,6 +11,10 @@ def linearize_tree(node_ix, nodes):
 def build_tree(gltf):
     parents = {} # from child to parent
 
+    # fixme: hack
+    if len(gltf.json["nodes"]) == 1:
+        return {}, [0]
+
     for node_ix, node in enumerate(gltf.json["nodes"]):
         if "children" not in node:
             continue
@@ -18,7 +22,8 @@ def build_tree(gltf):
             assert child_ix not in parents
             parents[child_ix] = node_ix
 
-    root_node_ix, = [i for i in parents.values() if i not in parents]
+    root_node_ix, = set(i for i in parents.values() if i not in parents)
+    print(root_node_ix)
     traversal_order = list(linearize_tree(root_node_ix, gltf.json["nodes"]))
 
     return parents, traversal_order

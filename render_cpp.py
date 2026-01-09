@@ -119,7 +119,7 @@ def render_nodes(gltf):
             print(f"mesh node {node_ix}", file=sys.stderr)
 
         skin = f"&skin_{node['skin']}" if "skin" in node else "NULL"
-        mesh = f"&mesh_{node['skin']}" if "mesh" in node else "NULL"
+        mesh = f"&mesh_{node['mesh']}" if "mesh" in node else "NULL"
 
         scale = (1, 1, 1)
         translation = (0, 0, 0)
@@ -154,6 +154,9 @@ def render_nodes_extern(gltf):
     yield f'const int nodes__length = {len(gltf.json["nodes"])};'
 
 def render_skins(gltf):
+    if "skins" not in gltf.json:
+        return
+
     for skin_ix, skin in enumerate(gltf.json["skins"]):
         yield f"const int skin_{skin_ix}__joints[] = {{"
         for joint in skin["joints"]:
@@ -169,6 +172,8 @@ def render_skins(gltf):
         yield "};"
 
 def render_skins_extern(gltf):
+    if "skins" not in gltf.json:
+        return
     for skin_ix, skin in enumerate(gltf.json["skins"]):
         yield f"const int skin_{skin_ix}__joints__length = {len(skin['joints'])};"
 
@@ -194,12 +199,16 @@ def render_animation_channels(animation_ix, channels):
     yield "};"
 
 def render_animations_extern(animation_ix):
+    if "animations" not in gltf.json:
+        return
     for animation_ix, animation in enumerate(gltf.json["animations"]):
         yield f"extern const AnimationChannel animation_{animation_ix}__channels[];"
         length = len(animation["channels"])
         yield f"const int animation_{animation_ix}__channels__length = {length};"
 
 def render_animations(gltf):
+    if "animations" not in gltf.json:
+        return
     for animation_ix, animation in enumerate(gltf.json["animations"]):
         yield from render_animation_samplers(animation_ix, animation["samplers"])
         yield from render_animation_channels(animation_ix, animation["channels"])
