@@ -11,13 +11,13 @@ from tree import build_tree
 
 def type_name(type):
     return {
-        "SCALAR": "DWORD",
-        "VEC2": "D3DXVECTOR2",
-        "VEC3": "D3DXVECTOR3",
-        "VEC4": "D3DXVECTOR4",
+        "SCALAR": "int",
+        "VEC2": "XMFLOAT2",
+        "VEC3": "XMFLOAT3",
+        "VEC4": "XMFLOAT4",
         # MAT2
         # MAT3
-        "MAT4": "D3DXMATRIX",
+        "MAT4": "XMMATRIX",
     }[type]
 
 def float_s(f):
@@ -31,21 +31,21 @@ def sv(v, c_type):
 
 def mv(v, c_type):
     assert len(v) == 16
-    assert c_type == "D3DXMATRIX"
+    assert c_type == "XMMATRIX"
 
     v = [float_s(c) for c in v]
 
     return f"""
-D3DXMATRIX({v[ 0]}, {v[ 1]}, {v[ 2]}, {v[ 3]},
-             {v[ 4]}, {v[ 5]}, {v[ 6]}, {v[ 7]},
-             {v[ 8]}, {v[ 9]}, {v[10]}, {v[11]},
-             {v[12]}, {v[13]}, {v[14]}, {v[15]})
+XMMATRIX({v[ 0]}, {v[ 1]}, {v[ 2]}, {v[ 3]},
+         {v[ 4]}, {v[ 5]}, {v[ 6]}, {v[ 7]},
+         {v[ 8]}, {v[ 9]}, {v[10]}, {v[11]},
+         {v[12]}, {v[13]}, {v[14]}, {v[15]})
 """.strip()
 
 def render_value(value, c_type):
-    if "MAT" in c_type:
+    if "MATRIX" in c_type:
         return mv(value, c_type)
-    elif "VEC" in c_type:
+    elif "FLOAT" in c_type:
         return sv(value, c_type)
     elif type(value) in {int, float}:
         return f"{value}"
@@ -55,7 +55,7 @@ def render_value(value, c_type):
 def accessor_c_type(accessor, components):
     accessor_type = accessor['type']
     if type(components[0]) in {int, float}:
-        return "DWORD" if type(components[0]) is int else "float"
+        return "int" if type(components[0]) is int else "float"
     else:
         return type_name(accessor_type)
 
@@ -131,15 +131,15 @@ def render_nodes(gltf):
         if "rotation" in node:
             rotation = node["rotation"]
 
-        parent_ix = node_parents.get(node_ix, -1)
+        parent_ix = node_parents.get(node_ix, "(int)-1")
 
         yield f"const Node node_{node_ix} = {{"
         yield f"{parent_ix}, // parent_ix"
         yield f"{skin}, // skin"
         yield f"{mesh}, // mesh"
-        yield f"{render_value(translation, 'D3DXVECTOR3')}, // translation"
-        yield f"{render_value(rotation, 'D3DXVECTOR4')}, // rotation"
-        yield f"{render_value(scale, 'D3DXVECTOR3')}, // scale"
+        yield f"{render_value(translation, 'XMFLOAT3')}, // translation"
+        yield f"{render_value(rotation, 'XMFLOAT4')}, // rotation"
+        yield f"{render_value(scale, 'XMFLOAT3')}, // scale"
         yield "};"
 
     yield "const Node * nodes[] = {"
@@ -214,6 +214,7 @@ def render_animations(gltf):
         yield from render_animation_channels(animation_ix, animation["channels"])
 
 def render_gltf_header(gltf, prefix):
+    yield "#pragma once"
     yield f"#ifndef _{prefix.upper()}_HPP_"
     yield f"#define _{prefix.upper()}_HPP_"
     yield f"namespace {prefix} {{"
@@ -226,7 +227,7 @@ def render_gltf_header(gltf, prefix):
 
 def render_gltf_source(gltf, prefix, filename_hpp):
     header_name = path.split(filename_hpp)[1]
-    yield "#include <d3dx10.h>"
+    yield '#include "directxmath/directxmath.h"'
     yield '#include "gltf.hpp"'
     yield f'#include "{header_name}"'
     yield f"namespace {prefix} {{"

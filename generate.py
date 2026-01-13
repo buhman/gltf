@@ -20,9 +20,9 @@ def _render(out, lines, indent_length):
                 level = 0
 
         if len(l) == 0:
-            out.write("\n")
+            out.write("\r\n")
         else:
-            out.write(indent * level + l + "\n")
+            out.write(indent * level + l + "\r\n")
 
         if l and (l[-1] == "{" or l[-1] == "("):
             if l.startswith("namespace"):
@@ -32,7 +32,7 @@ def _render(out, lines, indent_length):
 
         if level == 0 and l and l[-1] == ";":
             if should_autonewline(l):
-                out.write("\n")
+                out.write("\r\n")
     return out
 
 def renderer(indent_length=2):
