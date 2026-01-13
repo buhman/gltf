@@ -213,36 +213,44 @@ def render_animations(gltf):
         yield from render_animation_samplers(animation_ix, animation["samplers"])
         yield from render_animation_channels(animation_ix, animation["channels"])
 
-def render_gltf_header(gltf):
+def render_gltf_header(gltf, prefix):
+    yield f"#ifndef _{prefix.upper()}_HPP_"
+    yield f"#define _{prefix.upper()}_HPP_"
+    yield f"namespace {prefix} {{"
     yield from render_skins_extern(gltf)
     yield from render_accessors_extern(gltf)
     yield from render_nodes_extern(gltf)
     yield from render_animations_extern(gltf)
+    yield "}"
+    yield "#endif"
 
-def render_gltf_source(gltf, filename_hpp):
+def render_gltf_source(gltf, prefix, filename_hpp):
     header_name = path.split(filename_hpp)[1]
     yield "#include <d3dx10.h>"
     yield '#include "gltf.hpp"'
     yield f'#include "{header_name}"'
+    yield f"namespace {prefix} {{"
     yield from render_accessors(gltf)
     yield from render_meshes(gltf)
     yield from render_nodes(gltf)
     yield from render_skins(gltf)
     yield from render_animations(gltf)
+    yield "}"
 
 filename = sys.argv[1]
-filename_cpp = sys.argv[2]
+prefix = sys.argv[2]
+filename_cpp = sys.argv[3]
 assert filename_cpp.endswith(".cpp")
-filename_hpp = sys.argv[3]
+filename_hpp = sys.argv[4]
 assert filename_hpp.endswith(".hpp")
 gltf = decode_file(filename)
 
 with open(filename_cpp, "w") as f:
     render, out = renderer()
-    render(render_gltf_source(gltf, filename_hpp))
+    render(render_gltf_source(gltf, prefix, filename_hpp))
     f.write(out.getvalue())
 
 with open(filename_hpp, "w") as f:
     render, out = renderer()
-    render(render_gltf_header(gltf))
+    render(render_gltf_header(gltf, prefix))
     f.write(out.getvalue())
